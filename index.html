@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Sprinkle Trivia</title>
+    <style>
+
+    </style>
+    <script type="module">
+        import {
+            createComputed,
+            createVariable,
+            bindClass,
+            bindDom,
+            bindStyle,
+            bindInnerHTML,
+            bindInputValue,
+            bindChildrens,
+        } from "https://cdn.skypack.dev/sprinkle-js";
+        const shuffle = a => {
+            let idx = a.length
+            while(idx != 0) {
+                const rand = Math.floor(Math.random() * idx)
+                idx--
+                [a[idx], a[rand]] = [a[rand], a[idx]]
+            }
+            return a
+        }
+        const SECS_DEF = 10
+        const SECS_MAX = 30
+        const SECS_MIN = 5
+        const QQ_MAX = 10
+        const QQ_MIN = 3
+        const state = createVariable({
+            qq: [],
+            q: null,
+            cur: 0,
+            loading: false,
+            pts: 0,
+            mul: 1,
+            diff: 50,
+            player: null,
+            stage: 'intro', // can be one of ['intro', 'game', 'results']
+            time: SECS_DEF * 1000,
+        });
+        let ticker = null
+        const tick = millis => () => {
+            const r = state.time - millis
+            if (r <= 0) {
+              state.stage = 'results'
+            } else state.time = r
+        }
+        const calcTime = () => Math.ceil(SECS_MAX - ((SECS_MAX - SECS_MIN) / 100 * state.diff))
+        const startTimer = () => {
+            state.time = calcTime() * 1000
+            ticker = setInterval(tick(10), 10)
+        }
+        const next = () => {
+            if (state.cur + 1 < state.qq.length) {
+                state.cur = state.cur + 1
+                state.q = state.qq[state.cur]
+                return true
+            } else {
+                state.stage = 'results'
+                return false
+            }
+        }
+        const isCorrect = opt => state.q?.correct_answer === opt
+        const calcPts = avail => {
+          const tot = avail * 1000
+          const elapsed = tot - state.time
+          return Math.ceil((1 - Math.pow(elapsed / tot, .5)) * 100) * state.mul
+        }
+        const calcMul = () => state.diff < 66 ? state.diff < 33 ? 2 : 3 : 4
+        const answer = (mul, maxTime) => opt => {
+            clearInterval(ticker)
+            if (isCorrect(opt)) {
+                state.pts += calcPts(maxTime)
+                state.mul *= mul
+            } else {
+                state.mul = 1
+            }
+            if (next()) startTimer()
+        }
+        const calcQQ = () => Math.floor(QQ_MIN + ((QQ_MAX - QQ_MIN) / 100 * state.diff))
+        const fetchQuestions = async () => {
+            state.loading = true
+            const apiUrl = true ? `https://opentdb.com/api.php?amount=${calcQQ()}` : '/q.json'
+            state.qq = await fetch(apiUrl)
+              .then(r=>r.json())
+              .then(d=>d.results)
+              .then(rr => rr.map(r => ({...r, opts: shuffle([...r.incorrect_answers, r.correct_answer])})))
+            state.loading = false
+        }
+        const restart = async () => {
+            await fetchQuestions()
+            state.cur = 0
+            state.q = state.qq[0]
+            state.pts = 0
+            state.mul = 1
+            state.stage = 'game'
+            startTimer()
+        }
+        const newGame = () => {
+            state.qq = []
+            state.q = null
+            state.cur = 0
+            state.loading = false
+            state.pts = 0
+            state.mul = 1
+            state.diff = 50
+            state.player = null
+            state.stage = 'intro'
+            state.time = calcTime()
+        }
+        bindStyle("#loader", () => ({display: state.loading ? 'flex' : 'none'}));
+        bindStyle("#intro", () => ({display: state.stage === 'intro' ? 'flex' : 'none'}));
+        bindStyle("#game", () => ({display: state.stage === 'game' ? 'block' : 'none'}));
+        bindStyle("#results", () => ({display: state.stage === 'results' ? 'block' : 'none'}));
+        Array.from(document.getElementsByClassName("time")).map(el => bindClass(el, "text-red-700", () =>
+          state.time < 5 * 1000
+        )).map(el => bindClass(el, "text-yellow-400", () => state.time > 5 * 1000 && state.time < 10 * 1000))
+        .map(el => bindClass(el, "animate-pulse", () => state.time < 5 * 1000))
+        bindDom("#startBtn", () => ({
+            onclick: restart,
+            disabled: !state.player || undefined,
+        }))
+        const difficulty = bindInputValue("#difficulty", () => state.diff).addEventListener("change", e =>
+          state.diff = e.target.value
+        )
+        const nameInputEl = bindInputValue("#player", () => state.player)
+        nameInputEl.addEventListener("input", e => {state.player = e.target.value})
+        nameInputEl.addEventListener("keydown", e => e.key === 'Enter' && state.player ? restart() : null)
+        bindInnerHTML("#num", () => `Question #${state.cur + 1}`)
+        Array.from(document.getElementsByClassName("difficulty")).map(el => bindInnerHTML(el, () =>
+          state.diff < 66 ? state.diff < 33 ? `Easy &middot; ${calcTime()} seconds - ${calcQQ()} questions` : `Medium &middot; ${calcTime()} seconds - ${calcQQ()} questions` : `Hard &middot; ${calcTime()} seconds - ${calcQQ()} questions`)
+        )
+        Array.from(document.getElementsByClassName("pts")).map(el => bindInnerHTML(el, () => state.pts))
+        Array.from(document.getElementsByClassName("time")).map(el => bindInnerHTML(el, () => state.time / 10))
+        Array.from(document.getElementsByClassName("player")).map(el => bindInnerHTML(el, () => state.player))
+        bindInnerHTML("#q", () => state.q && state.q.question)
+        Array.from(document.getElementsByClassName("restartBtn")).map(el => bindDom(el, () => ({
+            onclick: restart,
+        })))
+        Array.from(document.getElementsByClassName("newGame")).map(el => bindDom(el, () => ({
+            onclick: newGame,
+        })))
+        bindChildrens(
+            "#opts",
+            () => state.q && state.q.opts.map((opt, idx) => `<li key="${opt}" class="p-4 rounded bg-fuchsia-700 text-white font-bold text-center max-w-md mx-auto transition-all active:scale-95 hover:bg-fuchsia-600 active:bg-fuchsia-500 hover:shadow-xl text-xl cursor-pointer">${opt}</li>`).join(''),
+            (_, elems) => {
+                for (const [opt,{isNew, element}] of elems.entries()) {
+                    if (isNew)
+                        element.addEventListener("click", e => answer(calcMul(), calcTime())(opt))
+                }
+            },
+        )
+
+        window.state = state
+        window.newGame = newGame
+        newGame()
+    </script>
+</head>
+
+<body class="dark:bg-slate-900 dark:text-gray-100 flex flex-col justify-center items-center min-h-screen gap-8">
+  <div id="loader"
+    class="bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl w-screen h-screen flex items-center justify-center flex-col absolute text-5xl uppercase font-black">
+    <span class="animate-bounce">Loading...</span></div>
+  <div id="intro" class="flex flex-col gap-8 justify-center items-center flex-grow text-3xl font-bold">
+    <div class="text-center space-y-4">
+      <h1 class="text-7xl bg-gradient-to-tl from-indigo-300 to-fuchsia-600 text-transparent bg-clip-text py-1">Play a trivia game!</h1>
+      <h4 class="text-xl font-semibold">Answer as many questions you can, as fast as you can!</h4>
+    </div>
+    <input type="text" class="dark:bg-slate-800 rounded p-4 focus:outline-none placeholder:text-slate-900 text-center"
+      id="player" placeholder="Enter your name" autofocus autocomplete="false" />
+    <div class="space-y-4 w-full text-center">
+      <label for="difficulty" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300 uppercase font-semibold">Difficulty</label>
+      <input id="difficulty" type="range" value="50"
+        class="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer range-lg dark:bg-slate-700 max-w-md">
+      <p class="difficulty uppercase text-lg"></p>
+    </div>
+    <button id="startBtn"
+      class="disabled:bg-indigo-500/50 disabled:cursor-not-allowed disabled:hover:px-10 cursor-pointer bg-indigo-500 hover:bg-indigo-600 active:bg-indigo-700 shadow-2xl hover:shadow-lg active:no-shadow rounded-lg active:scale-95 transition-all hover:rounded-none px-10 hover:px-16 py-3 font-black capitalize">Play</button>
+  </div>
+  <div id="game">
+    <h1 id="num" class="text-lg font-bold tracking-widest text-center uppercase"></h1>
+    <div id="q" class="text-center font-bold text-4xl mb-4 max-w-screen-lg mx-auto"></div>
+    <div class="text-base text-center text-slate-500">
+      player: <span class="font-bold player font-mono text-white"></span> &middot; points: <span class="pts font-bold font-mono text-white"></span> &middot; time: <span
+        class="time font-bold font-mono text-white"></span>
+    </div>
+    <ul id="opts" class="space-y-1 mt-8"></ul>
+  </div>
+  <div id="results" class="text-center">
+    <h1 class="font-bold text-xl uppercase tracking-widest">Results</h1>
+    <h2
+      class="font-black text-8xl font-black bg-gradient-to-br bg-clip-text text-transparent from-fuchsia-700 to-indigo-900">
+      Game over, <span class="player"></span>.</h2>
+    <div class="mt-8 text-xl uppercase font-semibold">You reached <span class="pts font-mono font-black"></span> points!</div>
+    <button
+      class="mt-8 newGame bg-indigo-500 hover:bg-indigo-600 active:bg-indigo-700 shadow-2xl hover:shadow-lg active:no-shadow rounded-lg active:scale-95 transition-all hover:rounded-none px-10 hover:px-16 py-3 uppercase font-bold">New Game</button>
+    <button
+      class="mt-8 restartBtn bg-indigo-500 hover:bg-indigo-600 active:bg-indigo-700 shadow-2xl hover:shadow-lg active:no-shadow rounded-lg active:scale-95 transition-all hover:rounded-none px-10 hover:px-16 py-3 uppercase font-bold">Play
+      again</button>
+  </div>
+</body>
+
+</html>
