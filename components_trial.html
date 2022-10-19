@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Sprinkle Trivia</title>
+    <style>
+
+    </style>
+    <script type="module">
+        import {
+            createComputed,
+            createRef,
+            createEffect,
+            createVariable,
+            bindClass,
+            bindDom,
+            bindStyle,
+            bindInnerHTML,
+            bindInputValue,
+            bindChildren,
+        } from "https://cdn.skypack.dev/sprinkle-js";
+        const isString = x => typeof x === 'string'
+        const isArray = Array.isArray
+        const arrayPush = Array.prototype.push
+        const isObject = x => typeof x === 'object' && !isArray(x)
+
+        const clean = (arr, n) => (
+          n && arrayPush.apply(arr, isString(n[0]) ? [n] : n), arr
+        )
+
+        const child = (n, cb) =>
+          n != null ? (isArray(n) ? n.reduce(clean, []).map(cb) : [n + '']) : []
+
+        export const h = (x, y, z) => {
+          const transform = node =>
+          isString(node)
+            ? node
+            : isObject(node[1])
+              ? {
+                  [x]: node[0],
+                  [y]: node[1],
+                  [z]: child(node[2], transform),
+                }
+              : transform([node[0], {}, node[1]])
+          return transform
+        }
+
+        const app = fn => (...args) => h('node', 'attrs', 'children')(fn(...args))
+        const state = createVariable({})
+        const useState = stId => (i = null) => {
+          const s = createRef(state[stId] || i)
+          return [s, ns => {
+            s.value = ns
+            state[stId] = s.value
+            return s.value
+          }]
+        }
+        const render = (c, el) => {
+          const parse = n => {
+            if (isString(n)) return document.createTextNode(n)
+            const el = document.createElement(n.node)
+            const listeners = Object.entries(n.attrs || {}).filter(([k,]) => k.startsWith('on')).map(([k, v]) => [k.replace("on", "").toLowerCase(), v])
+            const attrs = Object.entries(n.attrs || {}).filter(([k, v]) => !k.startsWith('on'))
+            listeners.forEach(([k, v]) => el.addEventListener(k, v))
+            attrs.forEach(([k, v]) => el.setAttribute(k, v))
+            if (n.children) {
+              const nc = isArray(n.children) ? n.children.map(parse) : [document.createTextNode(n.children[0])]
+              el.replaceChildren(...nc)
+            }
+            return el
+          }
+          createEffect(() => {
+            const vdom = app(c)({})
+            el.replaceChildren(parse(vdom))
+          })
+        }
+
+        const randId = () => Math.random().toString(16).slice(2)
+        const stateless = fn => {
+          const cId = randId()
+          return props => fn({...props, id: cId})
+        }
+        const stateful = fn => {
+          const cId = randId()
+          return props => fn({...props, id: cId, useState: useState(cId)})
+        }
+
+        const Btn = ({onclick, variant, children}) => {
+          return ["button", {class: `p-4 ${variant === 'primary' ? 'bg-red-700 hover:bg-red-500' : 'bg-blue-700 hover:bg-blue-500'} rounded font-bold uppercase`, onclick}, [children]]
+        }
+
+        const Counter = stateful(({useState}) => {
+          const [count, setCount] = useState(0)
+          const incr = () => setCount(count.value+1)
+          const decr = () => setCount(count.value-1)
+          const alerter = msg => () => alert(msg)
+          return ["div", {class: "space-y-8"}, [
+            ["h1", {class: "text-3xl font-black text-center"}, `Counter ${count.value}`],
+            ["div", {class: "max-w-md mx-auto grid grid-cols-2 gap-1"}, [
+              Btn({onclick: incr, variant: 'primary', children: "Increment"}),
+              Btn({onclick: decr, variant: 'secondary', children: "Decrement"}),
+          ]]]]
+        })
+
+        const Input = stateless((props) => {
+          return ["input", {
+            class: "max-w-md mx-auto dark:bg-slate-700 rounded border-none focus:outline-none p-4 w-full",
+            ...props,
+          }]
+        })
+
+        function Hello({children}) {
+          return ["div", {class: "mb-16 px-2 text-center space-y-4"}, children]
+        }
+
+        const Main = stateful(({useState, ...props}) => {
+          const [name, setName] = useState('world')
+          const handleChange = e => {
+            setName(e.target.value)
+          }
+          return ["main", {class: "", ...props}, [
+            Hello({children: [
+              ["h3", {class: "text-7xl font-bold"}, `Hello, ${name.value || ''}!`],
+              Input({onchange: handleChange, value: name.value}),
+            ]}),
+            Counter(),
+          ]]
+        })
+        render(Main, document.body)
+    </script>
+</head>
+
+<body class="dark:bg-slate-900 dark:text-gray-100 flex flex-col justify-center items-center min-h-screen gap-8">
+</body>
+</html>
