@@ -168,15 +168,15 @@
 
 <body class="dark:bg-slate-900 dark:text-gray-100 flex flex-col justify-center items-center min-h-screen gap-8">
   <div id="loader"
-    class="bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl w-screen h-screen flex items-center justify-center flex-col absolute text-5xl uppercase font-black">
+    class="bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl flex items-center justify-center flex-col fixed text-5xl uppercase font-black inset-0">
     <span class="animate-bounce">Loading...</span></div>
-  <div id="intro" class="flex flex-col gap-8 justify-center items-center flex-grow text-3xl font-bold">
+  <div id="intro" class="max-w-full flex flex-col gap-8 justify-center items-center flex-grow text-3xl font-bold">
     <div class="text-center space-y-4">
-      <h1 class="text-7xl bg-gradient-to-tl from-indigo-300 to-fuchsia-600 text-transparent bg-clip-text py-1">Play a trivia game!</h1>
+      <h1 class="text-7xl bg-gradient-to-tl from-indigo-300 to-fuchsia-600 text-transparent bg-clip-text py-5">Play a trivia game!</h1>
       <h4 class="text-xl font-semibold">Answer as many questions you can, as fast as you can!</h4>
     </div>
     <input type="text" class="dark:bg-slate-800 rounded p-4 focus:outline-none placeholder:text-slate-900 text-center"
-      id="player" placeholder="Enter your name" autofocus autocomplete="false" />
+      id="player" placeholder="Enter your name" autofocus autocomplete="off" />
     <div class="space-y-4 w-full text-center">
       <label for="difficulty" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300 uppercase font-semibold">Difficulty</label>
       <input id="difficulty" type="range" value="50"
@@ -190,8 +190,8 @@
     <h1 id="num" class="text-lg font-bold tracking-widest text-center uppercase"></h1>
     <div id="q" class="text-center font-bold text-4xl mb-4 max-w-screen-lg mx-auto"></div>
     <div class="text-base text-center text-slate-500">
-      player: <span class="font-bold player font-mono text-white"></span> &middot; points: <span class="pts font-bold font-mono text-white"></span> &middot; time: <span
-        class="time font-bold font-mono text-white"></span>
+      player: <span class="font-bold player font-mono dark:text-white"></span> &middot; points: <span class="pts font-bold font-mono dark:text-white"></span> &middot; time: <span
+        class="time font-bold font-mono dark:text-white"></span>
     </div>
     <ul id="opts" class="space-y-1 mt-8"></ul>
   </div>
