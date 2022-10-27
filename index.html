@@ -12,14 +12,15 @@
     </style>
     <script type="module">
         import {
-            createComputed,
-            createVariable,
+            bindChildren,
             bindClass,
             bindDom,
-            bindStyle,
             bindInnerHTML,
             bindInputValue,
-            bindChildrens,
+            bindStyle,
+            createComputed,
+            createVariable,
+            html,
         } from "https://cdn.skypack.dev/sprinkle-js";
         const shuffle = a => {
             let idx = a.length
@@ -149,15 +150,10 @@
         Array.from(document.getElementsByClassName("newGame")).map(el => bindDom(el, () => ({
             onclick: newGame,
         })))
-        bindChildrens(
+        bindChildren(
             "#opts",
-            () => state.q && state.q.opts.map((opt, idx) => `<li key="${opt}" class="p-4 rounded bg-fuchsia-700 text-white font-bold text-center max-w-md mx-auto transition-all active:scale-95 hover:bg-fuchsia-600 active:bg-fuchsia-500 hover:shadow-xl text-xl cursor-pointer">${opt}</li>`).join(''),
-            (_, elems) => {
-                for (const [opt,{isNew, element}] of elems.entries()) {
-                    if (isNew)
-                        element.addEventListener("click", e => answer(calcMul(), calcTime())(opt))
-                }
-            },
+            () => html`${state.q && state.q.opts.map((opt, idx) =>
+                html`<li key="${opt}" on:click=${e => answer(calcMul(), calcTime())(opt)} class="p-4 rounded bg-fuchsia-700 text-white font-bold text-center max-w-md mx-auto transition-all active:scale-95 hover:bg-fuchsia-600 active:bg-fuchsia-500 hover:shadow-xl text-xl cursor-pointer">${opt}</li>`)}`,
         )
 
         window.state = state
